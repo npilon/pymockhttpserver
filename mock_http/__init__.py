@@ -3,6 +3,9 @@
 import BaseHTTPServer
 import threading
 import urllib2
+from collections import defaultdict
+
+GET = object()
 
 never = object()
 once = object()
@@ -29,10 +32,13 @@ class UnexpectedURLException(Exception):
     pass
 
 class Expectation(object):
-    def __init__(self, path):
-        self.times = None
-        self.times_invoked = 0
-        self.path = path
+    def __init__(self, mock, method):
+        self._mock = mock
+        self._method = method
+    
+    def path(self, path):
+        self._path = path
+        self._mock.expected[self._method][self._path] = self
 
 class MockHTTP(object):
     """A Mock HTTP Server for unit testing web services calls.
@@ -57,11 +63,12 @@ class MockHTTP(object):
         self.thread.start()
         started.wait()
         self.failed_url = None
-        self.expected = {'/final_request': Expectation('/final_request')}
+        self.expected = defaultdict(dict)
+        self.expects(GET).path('/final_request')
     
-    def expects(self, path='/'):
-        self.expected[path] = Expectation(path)
-        return self.expected[path]
+    def expects(self, method):
+        expectation = Expectation(self, method)
+        return expectation
     
     def verify(self):
         self.finish_serving.set()
@@ -79,7 +86,7 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler, object):
         super(RequestHandler, self).__init__(*args, **kwargs)
     
     def do_GET(self):
-        if self.path not in self.mock.expected:
+        if self.path not in self.mock.expected[GET]:
             self.mock.failed_url = self.path
             self.send_response(404)
         else:

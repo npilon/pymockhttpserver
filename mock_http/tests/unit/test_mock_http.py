@@ -1,6 +1,7 @@
 from unittest import TestCase
 import urllib2
-from mock_http import MockHTTP, GET, UnexpectedURLException
+import httplib
+from mock_http import MockHTTP, GET, POST, UnexpectedURLException
 from random import randint
 
 class TestMockHTTP(TestCase):
@@ -53,4 +54,13 @@ class TestMockHTTP(TestCase):
         response = urllib2.urlopen('http://127.0.0.1:%s/index.html' % self.server_port)
         self.assertEqual(response.info().get(test_header_name),
                          test_header_contents)
+        self.assert_(mock.verify())
+    
+    def test_post(self):
+        """Tests a POST request."""
+        test_body = 'Test POST body.'
+        mock = MockHTTP(self.server_port)
+        mock.expects(method=POST, path='/index.html', body=test_body)
+        response = urllib2.urlopen('http://127.0.0.1:%s/index.html' % self.server_port,
+                                   test_body)
         self.assert_(mock.verify())

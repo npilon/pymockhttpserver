@@ -4,8 +4,10 @@ import BaseHTTPServer
 import threading
 import urllib2
 from collections import defaultdict
+import select
 
 GET = 'GET'
+POST = 'POST'
 
 never = object()
 once = object()
@@ -29,21 +31,28 @@ class Action(object):
     pass
 
 class Expectation(object):
-    def __init__(self, mock, method, path):
+    def __init__(self, mock, method, path, body=None, headers=None):
         self.mock = mock
         self.method = method
         self.path = path
-        self.http_code = 200
-        self.http_headers = {}
-        self.http_body = ''
+        self.request_body = body
+        self.request_headers = headers
+        if body:
+            if not self.request_headers:
+                self.request_headers = {}
+            self.request_headers['content-length'] = str(len(body))
+        self.response_code = 200
+        self.response_headers = {}
+        self.response_body = ''
     
     def will(self, http_code=None, headers=None, body=None):
         if http_code is not None:
-            self.http_code = http_code
+            self.response_code = http_code
         if body is not None:
-            self.http_body = body
+            self.response_body = body
         if headers is not None:
-            self.http_headers = headers
+            self.response_headers = headers
+        return self
 
 class MockHTTP(object):
     """A Mock HTTP Server for unit testing web services calls.
@@ -71,8 +80,8 @@ class MockHTTP(object):
         self.expected = defaultdict(dict)
         self.expects(method=GET, path='/final_request')
     
-    def expects(self, method, path):
-        expectation = Expectation(self, method, path)
+    def expects(self, method, path, *args, **kwargs):
+        expectation = Expectation(self, method, path, *args, **kwargs)
         self.expected[method][path] = expectation
         return expectation
     
@@ -96,16 +105,28 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler, object):
             method = name[3:]
             return lambda: self.do(method)
     
+    def fail(self):
+        self.mock.failed_url = self.path
+        self.send_response(404)
+        self.end_headers()
+        self.wfile.write('')
+    
     def do(self, method):
         if self.path not in self.mock.expected[method]:
-            self.mock.failed_url = self.path
-            self.send_response(404)
-            self.end_headers()
-            self.wfile.write('')
+            self.fail()
         else:
             expectation = self.mock.expected[method][self.path]
-            self.send_response(expectation.http_code)
-            for header, value in expectation.http_headers.iteritems():
+            if expectation.request_headers:
+                for header, value in expectation.request_headers.iteritems():
+                    if header not in self.headers or self.headers[header] != value:
+                        self.fail()
+            request_body = None
+            if 'content-length' in self.headers:
+                request_body = self.rfile.read(int(self.headers['content-length']))
+            if request_body != expectation.request_body:
+                self.fail()
+            self.send_response(expectation.response_code)
+            for header, value in expectation.response_headers.iteritems():
                 self.send_header(header, value)
             self.end_headers()
-            self.wfile.write(expectation.http_body)
+            self.wfile.write(expectation.response_body)

@@ -5,7 +5,7 @@ import threading
 import urllib2
 from collections import defaultdict
 
-GET = object()
+GET = 'GET'
 
 never = object()
 once = object()
@@ -91,14 +91,19 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler, object):
         self.mock = mock
         super(RequestHandler, self).__init__(*args, **kwargs)
     
-    def do_GET(self):
-        if self.path not in self.mock.expected[GET]:
+    def __getattr__(self, name):
+        if name.startswith('do_'):
+            method = name[3:]
+            return lambda: self.do(method)
+    
+    def do(self, method):
+        if self.path not in self.mock.expected[method]:
             self.mock.failed_url = self.path
             self.send_response(404)
             self.end_headers()
             self.wfile.write('')
         else:
-            expectation = self.mock.expected[GET][self.path]
+            expectation = self.mock.expected[method][self.path]
             self.send_response(expectation.http_code)
             for header, value in expectation.http_headers.iteritems():
                 self.send_header(header, value)

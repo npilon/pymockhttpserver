@@ -11,12 +11,6 @@ never = object()
 once = object()
 at_least_once = object()
 
-def http_code(code):
-    pass
-
-def http_body(code):
-    pass
-
 def _server_thread(server, started, finish_serving, finished_serving):
     started.set()
     while not finish_serving.isSet():
@@ -31,14 +25,25 @@ class UnexpectedURLException(Exception):
     """Raised by verify when MockHTTP had gotten an unexpected URL."""
     pass
 
+class Action(object):
+    pass
+
 class Expectation(object):
-    def __init__(self, mock, method):
-        self._mock = mock
-        self._method = method
+    def __init__(self, mock, method, path):
+        self.mock = mock
+        self.method = method
+        self.path = path
+        self.http_code = 200
+        self.http_headers = {}
+        self.http_body = ''
     
-    def path(self, path):
-        self._path = path
-        self._mock.expected[self._method][self._path] = self
+    def will(self, http_code=None, headers=None, body=None):
+        if http_code is not None:
+            self.http_code = http_code
+        if body is not None:
+            self.http_body = body
+        if headers is not None:
+            self.http_headers = headers
 
 class MockHTTP(object):
     """A Mock HTTP Server for unit testing web services calls.
@@ -64,10 +69,11 @@ class MockHTTP(object):
         started.wait()
         self.failed_url = None
         self.expected = defaultdict(dict)
-        self.expects(GET).path('/final_request')
+        self.expects(method=GET, path='/final_request')
     
-    def expects(self, method):
-        expectation = Expectation(self, method)
+    def expects(self, method, path):
+        expectation = Expectation(self, method, path)
+        self.expected[method][path] = expectation
         return expectation
     
     def verify(self):
@@ -89,7 +95,12 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler, object):
         if self.path not in self.mock.expected[GET]:
             self.mock.failed_url = self.path
             self.send_response(404)
+            self.end_headers()
+            self.wfile.write('')
         else:
-            self.send_response(200)
-        self.end_headers()
-        self.wfile.write('')
+            expectation = self.mock.expected[GET][self.path]
+            self.send_response(expectation.http_code)
+            for header, value in expectation.http_headers.iteritems():
+                self.send_header(header, value)
+            self.end_headers()
+            self.wfile.write(expectation.http_body)

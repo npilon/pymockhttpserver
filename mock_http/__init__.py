@@ -75,6 +75,10 @@ class WrongHeaderException(MockHTTPExpectationFailure):
     """Raised when MockHTTP got a request with an invalid header."""
     pass
 
+class WrongHeaderValueException(MockHTTPExpectationFailure):
+    """Raised when MockHTTP got a request with an invalid header value."""
+    pass
+
 class Expectation(object):
     """A request that a MockHTTP server is expecting. Don't construct these
     directly, use :meth:`MockHTTP.expects`"""
@@ -91,6 +95,7 @@ class Expectation(object):
         self.times = times
         self.invoked = False
         self.failure = None
+        self.abruptly_disconnect = False
         self.name = name
         if name is not None:
             self.mock.expected_by_name[name] = self
@@ -99,7 +104,7 @@ class Expectation(object):
         else:
             self.after = None
     
-    def will(self, http_code=None, headers=None, body=None):
+    def will(self, http_code=None, headers=None, body=None, abruptly_disconnect=False):
         """Specifies what to do in response to a matching request.
         
         :param http_code: The HTTP code to send. *Default:* 200 OK.
@@ -108,6 +113,8 @@ class Expectation(object):
         :param body: A string object containing the HTTP body to send. To send\
         unicode, first encode it to utf-8. (And probably include an appropriate\
         content-type header.) *Default:* No body is sent.
+        :param abruptly_disconnect: Raise an unhandled exception during\
+        processing and abruptly disconnect the client.
         :returns: This :class:`Expectation` object."""
         if http_code is not None:
             self.response_code = http_code
@@ -115,6 +122,7 @@ class Expectation(object):
             self.response_body = body
         if headers is not None:
             self.response_headers = headers
+        self.abruptly_disconnect = abruptly_disconnect
         return self
     
     def check(self, method, path, headers, body):
@@ -137,7 +145,7 @@ class Expectation(object):
                         'Expected header missing on %s %s: %s' %\
                         (method, path, header))
                 elif headers[header] != value:
-                    raise WrongHeaderException(
+                    raise WrongHeaderValueException(
                         'Wrong value for %s on %s %s. Expected: %r Got: %r' %\
                         (header, method, path, headers[header], value))
     
@@ -165,6 +173,9 @@ class Expectation(object):
     
     def respond(self, request):
         """Respond to a request."""
+        if self.abruptly_disconnect:
+            self.invoked = True
+            raise Exception("Abrupt disconnect simulation.")
         request.send_response(self.response_code)
         for header, value in self.response_headers.iteritems():
             request.send_header(header, value)

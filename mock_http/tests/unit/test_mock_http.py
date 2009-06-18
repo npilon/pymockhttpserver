@@ -3,7 +3,8 @@ import urllib2
 import httplib
 from mock_http import MockHTTP, GET, POST, UnexpectedURLException,\
      UnretrievedURLException, URLOrderingException, WrongBodyException,\
-     AlreadyRetrievedURLException, never, once, at_least_once
+     AlreadyRetrievedURLException, WrongHeaderValueException,\
+     WrongHeaderException, never, once, at_least_once
 from random import randint
 
 class TestMockHTTP(TestCase):
@@ -152,3 +153,86 @@ class TestMockHTTP(TestCase):
                           'http://127.0.0.1:%s/index.html' % self.server_port,
                           test_body)
         self.assertRaises(WrongBodyException, mock.verify)
+    
+    def test_post_header(self):
+        """Tests a POST request with some custom headers."""
+        test_body = 'Test POST body.\r\n'
+        test_headers = {'content-type': 'application/atom+xml; type=entry',
+                        'content-length': str(len(test_body)),
+                        'Slug': 'ooze',}
+        mock = MockHTTP(self.server_port)
+        mock.expects(method=POST, path='/index.html',
+                     body=test_body, headers=test_headers)
+        httpcon = httplib.HTTPConnection('localhost', self.server_port)
+        httpcon.request('POST', '/index.html', test_body, test_headers)
+        response = httpcon.getresponse()
+        response.read()
+        response.getheaders()
+        self.assertEqual(response.status, 200, response.reason)
+        self.assert_(mock.verify())
+
+    def test_post_unexpected_header(self):
+        """Tests a POST request with an unexpected header."""
+        test_body = 'Test POST body.\r\n'
+        test_headers = {'content-type': 'application/atom+xml; type=entry',
+                        'content-length': str(len(test_body)),
+                        'Slug': 'ooze',}
+        expected_headers = {'content-type': 'application/atom+xml; type=entry',
+                            'content-length': str(len(test_body)),}
+        mock = MockHTTP(self.server_port)
+        mock.expects(method=POST, path='/index.html',
+                     body=test_body, headers=expected_headers)
+        httpcon = httplib.HTTPConnection('localhost', self.server_port)
+        httpcon.request('POST', '/index.html', test_body, test_headers)
+        response = httpcon.getresponse()
+        response.read()
+        response.getheaders()
+        self.assertEqual(response.status, 200, response.reason)
+        self.assert_(mock.verify())
+
+    def test_post_missing_header(self):
+        """Tests a POST request without an expected header."""
+        test_body = 'Test POST body.\r\n'
+        test_headers = {'content-type': 'application/atom+xml; type=entry',
+                        'content-length': str(len(test_body)),}
+        expected_headers = {'content-type': 'application/atom+xml; type=entry',
+                            'content-length': str(len(test_body)),
+                            'Slug': 'ooze',}
+        mock = MockHTTP(self.server_port)
+        mock.expects(method=POST, path='/index.html',
+                     body=test_body, headers=expected_headers)
+        httpcon = httplib.HTTPConnection('localhost', self.server_port)
+        httpcon.request('POST', '/index.html', test_body, test_headers)
+        response = httpcon.getresponse()
+        response.read()
+        response.getheaders()
+        self.assertEqual(response.status, 404, response.reason)
+        self.assertRaises(WrongHeaderException, mock.verify)
+    
+    def test_post_unexpected_header_value(self):
+        """Tests a POST request with an unexpected header value."""
+        test_body = 'Test POST body.\r\n'
+        test_headers = {'content-type': 'application/atom+xml; type=entry',
+                        'content-length': str(len(test_body)),
+                        'Slug': 'ooze',}
+        expected_headers = {'content-type': 'application/atom+xml; type=entry',
+                        'content-length': str(len(test_body)),
+                        'Slug': 'slime',}
+        mock = MockHTTP(self.server_port)
+        mock.expects(method=POST, path='/index.html',
+                     body=test_body, headers=expected_headers)
+        httpcon = httplib.HTTPConnection('localhost', self.server_port)
+        httpcon.request('POST', '/index.html', test_body, test_headers)
+        response = httpcon.getresponse()
+        response.read()
+        response.getheaders()
+        self.assertEqual(response.status, 404, response.reason)
+        self.assertRaises(WrongHeaderValueException, mock.verify)
+    
+    def test_abrupt_disconnect(self):
+        """Tests a get request that expects to be rudely disconnected."""
+        mock = MockHTTP(self.server_port)
+        mock.expects(method=GET, path='/index.html').will(abruptly_disconnect=True)
+        self.assertRaises(httplib.BadStatusLine, urllib2.urlopen,
+                          'http://127.0.0.1:%s/index.html' % self.server_port)
+        self.assert_(mock.verify())

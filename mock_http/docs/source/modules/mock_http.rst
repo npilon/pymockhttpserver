@@ -29,6 +29,8 @@ Public Exceptions
 
 .. autoexception:: WrongHeaderException
 
+.. autoexception:: WrongHeaderValueException
+
 Private Classes
 ---------------
 .. autoclass:: TimeoutHTTPServer

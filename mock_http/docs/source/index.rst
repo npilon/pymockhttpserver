@@ -11,6 +11,14 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+Module Listing
+--------------
+
+.. toctree::
+   :maxdepth: 2
+   
+   modules/mock_http
+
 Indices and tables
 ==================
 

@@ -2,7 +2,8 @@ from unittest import TestCase
 import urllib2
 import httplib
 from mock_http import MockHTTP, GET, POST, UnexpectedURLException,\
-     UnretrievedURLException, URLOrderingException, never, once, at_least_once
+     UnretrievedURLException, URLOrderingException, WrongBodyException,\
+     AlreadyRetrievedURLException, never, once, at_least_once
 from random import randint
 
 class TestMockHTTP(TestCase):
@@ -84,7 +85,7 @@ class TestMockHTTP(TestCase):
         urllib2.urlopen('http://127.0.0.1:%s/index.html' % self.server_port)
         self.assertRaises(urllib2.HTTPError, urllib2.urlopen,
                           'http://127.0.0.1:%s/index.html' % self.server_port)
-        self.assertRaises(UnexpectedURLException, mock.verify)
+        self.assertRaises(AlreadyRetrievedURLException, mock.verify)
     
     def test_get_once_got_never(self):
         """Test never getting a URL that expects to be retrieved once only."""
@@ -140,3 +141,14 @@ class TestMockHTTP(TestCase):
                                    test_body)
         resp.read()
         self.assert_(mock.verify())
+    
+    def test_post_bad_body(self):
+        """Tests a POST request that sends the wrong body data."""
+        test_body = 'Test POST body.\r\n'
+        expected_body = 'Expected POST body.\r\n'
+        mock = MockHTTP(self.server_port)
+        mock.expects(method=POST, path='/index.html', body=expected_body)
+        self.assertRaises(urllib2.HTTPError, urllib2.urlopen,
+                          'http://127.0.0.1:%s/index.html' % self.server_port,
+                          test_body)
+        self.assertRaises(WrongBodyException, mock.verify)

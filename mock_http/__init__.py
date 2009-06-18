@@ -315,4 +315,5 @@ class RequestHandler(BaseHTTPServer.BaseHTTPRequestHandler, object):
             self.mock.is_expected(method, self.path, self.headers,
                                   request_body).respond(self)
         except MockHTTPExpectationFailure, failure:
-            return self.fail(failure)
+            self.fail(failure)
+            return

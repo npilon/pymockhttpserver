@@ -1,0 +1,5 @@
+Snow Leopard users:
+It can be quite difficult to install pycurl 7.19, so try installing an older version
+instead:
+
+ $ easy_install setuptools pycurl==7.16.4

@@ -11,4 +11,5 @@ mock_http.egg-info/*
 .DS_Store
 *.log
 *.wpr
+*env*
 .coverage

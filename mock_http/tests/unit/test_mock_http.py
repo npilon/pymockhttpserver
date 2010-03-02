@@ -16,7 +16,7 @@ class TestMockHTTP(TestCase):
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html')
         resp, status = self.fcurl.get_url(
-            'http://127.0.0.1:%s/index.html' % self.server_port)
+            'http://localhost:%s/index.html' % self.server_port)
         self.assertEqual(resp['status'], 200)
         self.assert_(mock.verify())
     
@@ -25,7 +25,7 @@ class TestMockHTTP(TestCase):
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html')
         resp, content = self.fcurl.get_url(
-            'http://127.0.0.1:%s/notindex.html' % self.server_port)
+            'http://localhost:%s/notindex.html' % self.server_port)
         self.assertEqual(resp['status'], 404)
         self.assertRaises(UnexpectedURLException, mock.verify)
     
@@ -34,7 +34,7 @@ class TestMockHTTP(TestCase):
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html').will(http_code=500)
         resp, content = self.fcurl.get_url(
-            'http://127.0.0.1:%s/index.html' % self.server_port)
+            'http://localhost:%s/index.html' % self.server_port)
         self.assertEqual(resp['status'], 500, 'Expected 500 response.')
         self.assert_(mock.verify())
     
@@ -44,7 +44,7 @@ class TestMockHTTP(TestCase):
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html').will(body=test_body)
         resp, content = self.fcurl.get_url(
-            'http://127.0.0.1:%s/index.html' % self.server_port)
+            'http://localhost:%s/index.html' % self.server_port)
         self.assertEqual(content.getvalue(), test_body)
         self.assert_(mock.verify())
     
@@ -56,7 +56,7 @@ class TestMockHTTP(TestCase):
         mock.expects(method=GET, path='/index.html').will(
             headers={test_header_name: test_header_contents})
         resp, content = self.fcurl.get_url(
-            'http://127.0.0.1:%s/index.html' % self.server_port)
+            'http://localhost:%s/index.html' % self.server_port)
         self.assertEqual(resp[test_header_name.lower()], test_header_contents)
         self.assert_(mock.verify())
     
@@ -65,10 +65,10 @@ class TestMockHTTP(TestCase):
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html')
         resp, content = self.fcurl.get_url(
-            'http://127.0.0.1:%s/index.html' % self.server_port)
+            'http://localhost:%s/index.html' % self.server_port)
         self.assertEqual(resp['status'], 200)
         resp, content = self.fcurl.get_url(
-            'http://127.0.0.1:%s/index.html' % self.server_port)
+            'http://localhost:%s/index.html' % self.server_port)
         self.assertEqual(resp['status'], 200)
         self.assert_(mock.verify)
     
@@ -77,7 +77,7 @@ class TestMockHTTP(TestCase):
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html', times=never)
         resp, content = self.fcurl.get_url(
-            'http://127.0.0.1:%s/index.html' % self.server_port)
+            'http://localhost:%s/index.html' % self.server_port)
         self.assertEqual(resp['status'], 404)
         self.assertRaises(UnexpectedURLException, mock.verify)
     
@@ -86,9 +86,9 @@ class TestMockHTTP(TestCase):
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html', times=once)
         resp, content = self.fcurl.get_url(
-            'http://127.0.0.1:%s/index.html' % self.server_port)
+            'http://localhost:%s/index.html' % self.server_port)
         resp, content = self.fcurl.get_url(
-            'http://127.0.0.1:%s/index.html' % self.server_port)
+            'http://localhost:%s/index.html' % self.server_port)
         self.assertEqual(resp['status'], 404)
         self.assertRaises(AlreadyRetrievedURLException, mock.verify)
     
@@ -103,9 +103,9 @@ class TestMockHTTP(TestCase):
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html', times=at_least_once)
         resp, content = self.fcurl.get_url(
-            'http://127.0.0.1:%s/index.html' % self.server_port)
+            'http://localhost:%s/index.html' % self.server_port)
         resp, content = self.fcurl.get_url(
-            'http://127.0.0.1:%s/index.html' % self.server_port)
+            'http://localhost:%s/index.html' % self.server_port)
         self.assertEqual(resp['status'], 200)
         self.assert_(mock.verify)
     
@@ -135,7 +135,7 @@ class TestMockHTTP(TestCase):
         mock.expects(method=GET, path='/index.html', name='url #1')
         mock.expects(method=POST, path='/index.html', after='url #1', body=test_body)
         resp, content = self.fcurl.post_url(
-            'http://127.0.0.1:%s/index.html' % self.server_port, data=test_body,
+            'http://localhost:%s/index.html' % self.server_port, data=test_body,
             content_type='text/plain')
         self.assertEqual(resp['status'], 404)
         self.assertRaises(URLOrderingException, mock.verify)
@@ -146,7 +146,7 @@ class TestMockHTTP(TestCase):
         mock = MockHTTP(self.server_port)
         mock.expects(method=POST, path='/index.html', body=test_body).will(http_code=201)
         resp, content = self.fcurl.post_url(
-            'http://127.0.0.1:%s/index.html' % self.server_port,
+            'http://localhost:%s/index.html' % self.server_port,
             data=test_body, content_type='text/plain')
         self.assertEqual(resp['status'], 201)
         self.assert_(mock.verify())
@@ -158,7 +158,7 @@ class TestMockHTTP(TestCase):
         mock = MockHTTP(self.server_port)
         mock.expects(method=POST, path='/index.html', body=expected_body)
         resp, content = self.fcurl.post_url(
-            'http://127.0.0.1:%s/index.html' % self.server_port,
+            'http://localhost:%s/index.html' % self.server_port,
             data=test_body, content_type='text/plain')
         self.assertEqual(resp['status'], 404)
         self.assertRaises(WrongBodyException, mock.verify)

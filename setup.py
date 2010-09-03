@@ -17,10 +17,10 @@ setup(name='mock_http',
       packages=find_packages(exclude=['ez_setup', 'examples', 'tests']),
       include_package_data=True,
       zip_safe=False,
+      test_suite='nose.collector',
       install_requires=[
           # -*- Extra requirements: -*-
           'cherrypy',
-          'friendly_curl',
       ],
       entry_points="""
       # -*- Entry points: -*-

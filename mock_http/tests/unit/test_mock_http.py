@@ -1,5 +1,5 @@
 from unittest import TestCase
-import friendly_curl
+import httplib2
 from mock_http import MockHTTP, GET, POST, UnexpectedURLException,\
      UnretrievedURLException, URLOrderingException, WrongBodyException,\
      AlreadyRetrievedURLException, WrongHeaderValueException,\
@@ -9,33 +9,33 @@ from random import randint
 class TestMockHTTP(TestCase):
     def setUp(self):
         self.server_port = randint(49152, 65535)
-        self.fcurl = friendly_curl.threadCURLSingleton()
+        self.http = httplib2.Http()
     
     def test_get_request(self):
         """Tests a get request that expects nothing to return but an 200."""
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html')
-        resp, status = self.fcurl.get_url(
+        resp, status = self.http.request(
             'http://localhost:%s/index.html' % self.server_port)
-        self.assertEqual(resp['status'], 200)
+        self.assertEqual(resp['status'], '200')
         self.assert_(mock.verify())
     
     def test_get_request_wrong_url(self):
         """Tests a get request that expects a different URL."""
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html')
-        resp, content = self.fcurl.get_url(
+        resp, content = self.http.request(
             'http://localhost:%s/notindex.html' % self.server_port)
-        self.assertEqual(resp['status'], 404)
+        self.assertEqual(resp['status'], '404')
         self.assertRaises(UnexpectedURLException, mock.verify)
     
     def test_get_with_code(self):
         """Tests a get request that returns a different URL."""
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html').will(http_code=500)
-        resp, content = self.fcurl.get_url(
+        resp, content = self.http.request(
             'http://localhost:%s/index.html' % self.server_port)
-        self.assertEqual(resp['status'], 500, 'Expected 500 response.')
+        self.assertEqual(resp['status'], '500', 'Expected 500 response.')
         self.assert_(mock.verify())
     
     def test_get_with_body(self):
@@ -43,9 +43,9 @@ class TestMockHTTP(TestCase):
         test_body = 'Test response.'
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html').will(body=test_body)
-        resp, content = self.fcurl.get_url(
+        resp, content = self.http.request(
             'http://localhost:%s/index.html' % self.server_port)
-        self.assertEqual(content.getvalue(), test_body)
+        self.assertEqual(content, test_body)
         self.assert_(mock.verify())
     
     def test_get_with_header(self):
@@ -55,7 +55,7 @@ class TestMockHTTP(TestCase):
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html').will(
             headers={test_header_name: test_header_contents})
-        resp, content = self.fcurl.get_url(
+        resp, content = self.http.request(
             'http://localhost:%s/index.html' % self.server_port)
         self.assertEqual(resp[test_header_name.lower()], test_header_contents)
         self.assert_(mock.verify())
@@ -64,32 +64,32 @@ class TestMockHTTP(TestCase):
         """Test getting a URL twice."""
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html')
-        resp, content = self.fcurl.get_url(
+        resp, content = self.http.request(
             'http://localhost:%s/index.html' % self.server_port)
-        self.assertEqual(resp['status'], 200)
-        resp, content = self.fcurl.get_url(
+        self.assertEqual(resp['status'], '200')
+        resp, content = self.http.request(
             'http://localhost:%s/index.html' % self.server_port)
-        self.assertEqual(resp['status'], 200)
+        self.assertEqual(resp['status'], '200')
         self.assert_(mock.verify)
     
     def test_never_get(self):
         """Test a URL that has a 'never' times on it."""
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html', times=never)
-        resp, content = self.fcurl.get_url(
+        resp, content = self.http.request(
             'http://localhost:%s/index.html' % self.server_port)
-        self.assertEqual(resp['status'], 404)
+        self.assertEqual(resp['status'], '404')
         self.assertRaises(UnexpectedURLException, mock.verify)
     
     def test_get_once_got_twice(self):
         """Test getting a URL twice that expects to be retrieved once only."""
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html', times=once)
-        resp, content = self.fcurl.get_url(
+        resp, content = self.http.request(
             'http://localhost:%s/index.html' % self.server_port)
-        resp, content = self.fcurl.get_url(
+        resp, content = self.http.request(
             'http://localhost:%s/index.html' % self.server_port)
-        self.assertEqual(resp['status'], 404)
+        self.assertEqual(resp['status'], '404')
         self.assertRaises(AlreadyRetrievedURLException, mock.verify)
     
     def test_get_once_got_never(self):
@@ -102,11 +102,11 @@ class TestMockHTTP(TestCase):
         """Test getting a URL twice that expects to be retrieved at least once."""
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html', times=at_least_once)
-        resp, content = self.fcurl.get_url(
+        resp, content = self.http.request(
             'http://localhost:%s/index.html' % self.server_port)
-        resp, content = self.fcurl.get_url(
+        resp, content = self.http.request(
             'http://localhost:%s/index.html' % self.server_port)
-        self.assertEqual(resp['status'], 200)
+        self.assertEqual(resp['status'], '200')
         self.assert_(mock.verify)
     
     def test_get_at_least_once_got_never(self):
@@ -121,11 +121,11 @@ class TestMockHTTP(TestCase):
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html', name='url #1')
         mock.expects(method=POST, path='/index.html', after='url #1', body=test_body)
-        resp, content = self.fcurl.get_url(
+        resp, content = self.http.request(
             'http://localhost:%s/index.html' % self.server_port)
-        resp, content = self.fcurl.post_url(
-            'http://localhost:%s/index.html' % self.server_port,
-            data = test_body, content_type='text/plain')
+        resp, content = self.http.request(
+            'http://localhost:%s/index.html' % self.server_port, method='POST',
+            body = test_body, headers=dict(content_type='text/plain'))
         self.assert_(mock.verify())
 
     def test_get_after_wrong_order(self):
@@ -134,10 +134,10 @@ class TestMockHTTP(TestCase):
         mock = MockHTTP(self.server_port)
         mock.expects(method=GET, path='/index.html', name='url #1')
         mock.expects(method=POST, path='/index.html', after='url #1', body=test_body)
-        resp, content = self.fcurl.post_url(
-            'http://localhost:%s/index.html' % self.server_port, data=test_body,
-            content_type='text/plain')
-        self.assertEqual(resp['status'], 404)
+        resp, content = self.http.request(
+            'http://localhost:%s/index.html' % self.server_port, body=test_body, method='POST',
+            headers=dict(content_type='text/plain'))
+        self.assertEqual(resp['status'], '404')
         self.assertRaises(URLOrderingException, mock.verify)
         
     def test_post(self):
@@ -145,10 +145,10 @@ class TestMockHTTP(TestCase):
         test_body = 'Test POST body.\r\n'
         mock = MockHTTP(self.server_port)
         mock.expects(method=POST, path='/index.html', body=test_body).will(http_code=201)
-        resp, content = self.fcurl.post_url(
+        resp, content = self.http.request(
             'http://localhost:%s/index.html' % self.server_port,
-            data=test_body, content_type='text/plain')
-        self.assertEqual(resp['status'], 201)
+            method='POST', body=test_body, headers=dict(content_type='text/plain'))
+        self.assertEqual(resp['status'], '201')
         self.assert_(mock.verify())
     
     def test_post_bad_body(self):
@@ -157,10 +157,10 @@ class TestMockHTTP(TestCase):
         expected_body = 'Expected POST body.\r\n'
         mock = MockHTTP(self.server_port)
         mock.expects(method=POST, path='/index.html', body=expected_body)
-        resp, content = self.fcurl.post_url(
+        resp, content = self.http.request(
             'http://localhost:%s/index.html' % self.server_port,
-            data=test_body, content_type='text/plain')
-        self.assertEqual(resp['status'], 404)
+            method='POST', body=test_body, headers=dict(content_type='text/plain'))
+        self.assertEqual(resp['status'], '404')
         self.assertRaises(WrongBodyException, mock.verify)
     
     def test_post_header(self):
@@ -172,11 +172,10 @@ class TestMockHTTP(TestCase):
         mock = MockHTTP(self.server_port)
         mock.expects(method=POST, path='/index.html',
                      body=test_body, headers=test_headers).will(http_code=201)
-        resp, content = self.fcurl.post_url(
+        resp, content = self.http.request(
             'http://localhost:%s/index.html' % self.server_port,
-            data=test_body, headers=test_headers,
-            content_type=test_headers['content-type'])
-        self.assertEqual(resp['status'], 201)
+            method='POST', body=test_body, headers=test_headers,)
+        self.assertEqual(resp['status'], '201')
         self.assert_(mock.verify())
 
     def test_post_unexpected_header(self):
@@ -190,11 +189,10 @@ class TestMockHTTP(TestCase):
         mock = MockHTTP(self.server_port)
         mock.expects(method=POST, path='/index.html',
                      body=test_body, headers=expected_headers)
-        resp, content = self.fcurl.post_url(
+        resp, content = self.http.request(
             'http://localhost:%s/index.html' % self.server_port,
-            data=test_body, headers=test_headers,
-            content_type=test_headers['content-type'])
-        self.assertEqual(resp['status'], 200)
+            method='POST', body=test_body, headers=test_headers,)
+        self.assertEqual(resp['status'], '200')
         self.assert_(mock.verify())
 
     def test_post_missing_header(self):
@@ -208,11 +206,10 @@ class TestMockHTTP(TestCase):
         mock = MockHTTP(self.server_port)
         mock.expects(method=POST, path='/index.html',
                      body=test_body, headers=expected_headers)
-        resp, content = self.fcurl.post_url(
+        resp, content = self.http.request(
             'http://localhost:%s/index.html' % self.server_port,
-            data=test_body, headers=test_headers,
-            content_type=test_headers['content-type'])
-        self.assertEqual(resp['status'], 404)
+            method='POST', body=test_body, headers=test_headers,)
+        self.assertEqual(resp['status'], '404')
         self.assertRaises(WrongHeaderException, mock.verify)
     
     def test_post_unexpected_header_value(self):
@@ -227,9 +224,8 @@ class TestMockHTTP(TestCase):
         mock = MockHTTP(self.server_port)
         mock.expects(method=POST, path='/index.html',
                      body=test_body, headers=expected_headers)
-        resp, content = self.fcurl.post_url(
+        resp, content = self.http.request(
             'http://localhost:%s/index.html' % self.server_port,
-            data=test_body, headers=test_headers,
-            content_type=test_headers['content-type'])
-        self.assertEqual(resp['status'], 404)
+            method='POST', body=test_body, headers=test_headers)
+        self.assertEqual(resp['status'], '404')
         self.assertRaises(WrongHeaderValueException, mock.verify)

@@ -208,7 +208,7 @@ class MockHTTP(object):
         mock_root = MockRoot(self)
         tree.mount(mock_root, '/')
         self.server = CherryPyWSGIServer(
-            self.server_address, tree, server_name='localhost')
+            self.server_address, tree, server_name='localhost', numthreads=1)
         self.thread = threading.Thread(
             target=_server_thread, kwargs={'server': self.server,
                                            'finished_serving': self.finished_serving})
@@ -259,6 +259,7 @@ class MockHTTP(object):
         unexpected thing that happened."""
         self.server.stop()
         self.finished_serving.wait()
+        self.thread.join()
         if self.last_failure is not None:
             raise self.last_failure
         for method, expected in self.expected.iteritems():

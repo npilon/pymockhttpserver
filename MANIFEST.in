@@ -1,2 +1,2 @@
 include COPYING.txt
-recursive-include mock_http/docs *.rst Makefile
+recursive-include mock_http/docs *.rst Makefile *.py
